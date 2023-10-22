@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {FBXLoader} from 'three/examples/jsm/loaders/FBXLoader.js';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TGALoader } from 'three/addons/loaders/TGALoader.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -8,23 +10,72 @@ const renderer = new THREE.WebGL1Renderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const keys = ['W', 'S', 'A', 'D'];
+//these values need to be set depending on the role player model
+const CAMERA_CONSTANTS = {
+    STARTING_DISTANCE : 4,
+    FOLLOWING_DISTANCE: 7,
+    FOLLOWING_SPEED: 0.2,
+    LINE_OF_SIGHT_OFFSET: 3
+};
+
+const ROLE_PLAYER_CONSTANTS = {
+    PERSPECTIVE_AXIS: "x", 
+    VERTICAL_AXIS: "y", 
+    HORIZONTAL_AXIS: "z",
+    SCALE: 0.005,
+    SPEED: 0.2,
+    SPEED_MULTIPLIER_ROTATION: 0.5
+};
+
+const CONTROLS = {
+    LINE_OF_SIGHT_OFFSET: 2,
+    keys: ['W', 'S', 'A', 'D', 'ControlLeft', 'Space']
+}
+
+//set these to configure controls
+const keys = CONTROLS.keys;
 
 const spawnPosition = new THREE.Vector3(0, 0, 0);
-const lineOfSightOffset = new THREE.Vector3(0, 2, 0); 
-const cameraSpawnPosition = spawnPosition.clone().add(new THREE.Vector3(0, 3, -3));
+
+const cameraLineOfSightOffset = new THREE.Vector3(0, 0, 0);
+cameraLineOfSightOffset[ROLE_PLAYER_CONSTANTS.VERTICAL_AXIS] = CAMERA_CONSTANTS.LINE_OF_SIGHT_OFFSET;
+
+const targetLineOfSightOffset = new THREE.Vector3(0, 0, 0);
+targetLineOfSightOffset[ROLE_PLAYER_CONSTANTS.VERTICAL_AXIS] = CONTROLS.LINE_OF_SIGHT_OFFSET;
+
+const cameraPositionOffsetVector = new THREE.Vector3(0, 0, 0);
+cameraPositionOffsetVector[ROLE_PLAYER_CONSTANTS.PERSPECTIVE_AXIS] = -CAMERA_CONSTANTS.STARTING_DISTANCE;
+const cameraSpawnPosition = spawnPosition.clone().add(cameraPositionOffsetVector).add(cameraLineOfSightOffset);
+
 camera.position.set(cameraSpawnPosition.x, cameraSpawnPosition.y, cameraSpawnPosition.z);
 
+setAmbientLight();
+
+const clock = new THREE.Clock();
 var rolePlayer;
-const loader = new GLTFLoader();
-loader.load('/cloth_ghost/scene.gltf', function(gltf) {
-    rolePlayer = gltf.scene;
-    rolePlayer.position.set(spawnPosition.x, spawnPosition.y, spawnPosition.z);
-    console.log(rolePlayer)
-    scene.add(rolePlayer);
-    camera.lookAt(rolePlayer.position + lineOfSightOffset);
+const manager = new THREE.LoadingManager();
+
+manager.addHandler(/\.tga$/i, new TGALoader())
+
+var mixer;
+var translatePrespective, rotateOnVertical, rotateOnHorizontal;
+new FBXLoader(manager).load('/phoenix_bird/source/fly.fbx', function(fbx) {
     
+    rolePlayer = fbx;
+    rolePlayer.scale.multiplyScalar(ROLE_PLAYER_CONSTANTS.SCALE);
+    translatePrespective = Object.getPrototypeOf(Object.getPrototypeOf(rolePlayer))[`translate${ROLE_PLAYER_CONSTANTS.PERSPECTIVE_AXIS.toUpperCase()}`];
+    rotateOnVertical = Object.getPrototypeOf(Object.getPrototypeOf(rolePlayer))[`rotate${ROLE_PLAYER_CONSTANTS.VERTICAL_AXIS.toUpperCase()}`];
+    rotateOnHorizontal = Object.getPrototypeOf(Object.getPrototypeOf(rolePlayer))[`rotate${ROLE_PLAYER_CONSTANTS.HORIZONTAL_AXIS.toUpperCase()}`];
+
+    rolePlayer.position.set(spawnPosition.x, spawnPosition.y, spawnPosition.z);
+    mixer = new THREE.AnimationMixer(rolePlayer);
+    mixer.clipAction(rolePlayer.animations[0]).play();
+
+    scene.add(rolePlayer);
+    
+
     document.onkeydown = function (event) {
+        console.log(event.code)
         const key = event.code.replace("Key", "")
         keys[key] = true;
     }
@@ -33,13 +84,11 @@ loader.load('/cloth_ghost/scene.gltf', function(gltf) {
         const key = event.code.replace("Key", "")
         keys[key] = false;
     }
+    
 }, undefined, function (error) {
     console.error(error);
 });
 
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(0,0,-5);
-scene.add(light);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
@@ -50,41 +99,59 @@ function animate(){
 
     requestAnimationFrame(animate);
     
+    if(!rolePlayer){
+        return;
+    }
+
     handleMovement();
 
     updateCamera();
 
     renderer.render(scene, camera);
+    mixer.update(clock.getDelta())
+
 }
 
+
 function handleMovement() {
-    if(keys['W']){
-        rolePlayer.translateZ(0.1);
+    if(keys['Space']){
+        translatePrespective.apply(rolePlayer, [ROLE_PLAYER_CONSTANTS.SPEED]);
     }
-     if(keys['S']){ 
-        rolePlayer.translateZ(-0.1);
+     if(keys['ControlLeft']){ 
+        translatePrespective.apply(rolePlayer, [-ROLE_PLAYER_CONSTANTS.SPEED]);    
     }
     if(keys['A']){ 
-        rolePlayer.rotateY(0.1);
-     
+        rotateOnVertical.apply(rolePlayer, [ROLE_PLAYER_CONSTANTS.SPEED*ROLE_PLAYER_CONSTANTS.SPEED_MULTIPLIER_ROTATION]);
     }
     if(keys['D']){
-        rolePlayer.rotateY(-0.1);
+        rotateOnVertical.apply(rolePlayer, [-ROLE_PLAYER_CONSTANTS.SPEED*ROLE_PLAYER_CONSTANTS.SPEED_MULTIPLIER_ROTATION]);
+    }
+    if(keys['S']){ 
+        rotateOnHorizontal.apply(rolePlayer, [-ROLE_PLAYER_CONSTANTS.SPEED*ROLE_PLAYER_CONSTANTS.SPEED_MULTIPLIER_ROTATION]);    
+    }   
+    if(keys['W']){ 
+        rotateOnHorizontal.apply(rolePlayer, [ROLE_PLAYER_CONSTANTS.SPEED*ROLE_PLAYER_CONSTANTS.SPEED_MULTIPLIER_ROTATION]);    
     }
 }
 
 function updateCamera() {
-    if(rolePlayer == undefined) {
-        return;
+
+    if(camera.position.distanceTo(rolePlayer.position) > CAMERA_CONSTANTS.FOLLOWING_DISTANCE){
+        const distance = rolePlayer.position.distanceTo(camera.position);
+        const translationVector = rolePlayer.position.clone().sub(camera.position).add(cameraLineOfSightOffset).normalize();
+        // camera.translateOnAxis(translationVector, distance - CAMERA_CONSTANTS.FOLLOWING_DISTANCE ); // why does this not work ?
+        camera.position.addScaledVector(translationVector, distance - CAMERA_CONSTANTS.FOLLOWING_DISTANCE);
     }
+
+    controls.target = rolePlayer.position.clone().add(targetLineOfSightOffset);
     
-    if(camera.position.distanceTo(rolePlayer.position) > 5){
-        camera.translateZ(-0.1);
-    }
-    camera.position.y = 3;
-    controls.target = rolePlayer.position.clone().add(lineOfSightOffset);
     camera.lookAt(controls.target);
+
     controls.update();
+}
+
+function setAmbientLight() {
+    scene.add(new THREE.AmbientLight())
 }
 
 animate();
