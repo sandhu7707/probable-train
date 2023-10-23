@@ -1,0 +1,11 @@
+Model Information:
+* title:	Desert (Map for Pavlov: Shack)
+* source:	https://sketchfab.com/3d-models/desert-map-for-pavlov-shack-d3725f5277ef427c83889f5a9fee881d
+* author:	Katschej (https://sketchfab.com/katschej)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Desert (Map for Pavlov: Shack)" (https://sketchfab.com/3d-models/desert-map-for-pavlov-shack-d3725f5277ef427c83889f5a9fee881d) by Katschej (https://sketchfab.com/katschej) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
